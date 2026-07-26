@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: YOURSERVICE
+  labels:
+    app: YOURSERVICE
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: YOURSERVICE
+  template:
+    metadata:
+      labels:
+        app: YOURSERVICE
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: server
+          image: ghcr.io/duke-ece/YOURSERVICE:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 50051
+          env:
+            # Non-secret config may be literal:
+            - name: PORT
+              value: "50051"
+            # Secrets come from k8s Secrets, never literals:
+            # - name: SUPABASE_SERVICE_ROLE_KEY
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: supabase-service-role
+            #       key: key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: YOURSERVICE
+  labels:
+    app: YOURSERVICE
+spec:
+  type: ClusterIP
+  selector:
+    app: YOURSERVICE
+  ports:
+    - port: 50051
+      targetPort: 50051

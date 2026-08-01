@@ -58,6 +58,10 @@ Rules:
   (signal.NotifyContext → Shutdown/GracefulStop).
 - `/health` reports dependency status and must never `log.Fatal` — a sick
   dependency is a 200 with `"status":"down"` detail, not a dead process.
+- **Escape valve**: a service whose slice would be a pure pass-through
+  (a proxy with no rules of its own) may collapse transport and slice
+  into one package. The moment a rule appears (ownership, validation,
+  orchestration of two backends), it moves into a slice.
 
 ## 3. Go — testing, gates, toolchain
 
@@ -66,11 +70,28 @@ Rules:
   `bufconn`; HTTP backends of external APIs are faked with `httptest`.
 - Gates: `gofmt -l .` clean, `go vet ./...`, `go test ./...` — all must pass
   before every push. Tests live next to the code they cover.
+- `./scripts/check.sh` (also `make check`, wired into CI) mechanically
+  verifies what a script can: go-directive on the 1.25 line, gofmt, no
+  committed `.env`, timestamped migration names, no secret literals in
+  manifests. Keep it passing; extend it when a rule is checkable.
 - **Toolchain trap (macOS dev machines auto-upgrade Go)**: after any
   `go get` / `go mod tidy`, the `go` directive in `go.mod` must stay on the
   1.25 line (Docker builds with `golang:1.25-alpine`, `GOTOOLCHAIN=local`).
   Verify everything as `GOTOOLCHAIN=local go build/vet/test ./...`.
   If tidy writes `go 1.26`, pin dependencies back (e.g. k8s.io v0.34.x).
+
+## 3a. Logging, dependencies, review
+
+- **Logging**: `log/slog` for anything new (structured, levels);
+  stdlib `log` is acceptable in `main` for boot lines. Never log secrets;
+  log startup config as booleans/paths, not values.
+- **Dependencies**: stdlib first. Every new module dependency needs a
+  one-line justification in the commit message; toolchain-sensitive dep
+  families (k8s.io) stay pinned to the versions in the template's go.sum.
+- **Review**: solo work may go straight to `main` once gates are green
+  locally; cross-cutting changes (contracts, shared CI, another repo's
+  domain) go through a PR. CI must be green before any deploy happens —
+  never bypass a red check.
 
 ## 4. Data access (Supabase)
 
@@ -121,3 +142,18 @@ Rules:
 - Conventional-ish commit messages (`feat:`, `fix:`, `chore:`), English.
 - Commit generated code (protos `gen/go/`) together with its source change.
 - Don't commit: secrets, `supabase/.temp/`, build artifacts, `.DS_Store`.
+
+## 9. New service checklist
+
+1. Copy `templates/go-service`, `go mod edit -module`, rename
+   `YOURSERVICE` in `k8s.yaml` + CI, rename `internal/example`.
+2. Contract first if it has an API: proto in `Duke-ECE/protos` → tag →
+   pin in go.mod.
+3. `gh repo create Duke-ECE/<name> --public --source . --push`; set the
+   `KUBE_CONFIG` repo secret.
+4. Tables needed? Timestamped migration in `supabase/migrations/`,
+   `supabase link --project-ref <ref>` + `supabase db push`.
+5. Secrets via `kubectl create secret` (never committed); wire with
+   `secretKeyRef` in `k8s.yaml`.
+6. First push to `main` deploys; verify with the rollout + a grpcurl /
+   curl smoke check (see the docs Operations page).

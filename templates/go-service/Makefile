@@ -16,8 +16,11 @@ test:
 run:
 	go run ./cmd/server
 
+check:
+	./scripts/check.sh
+
 tidy:
 	go mod tidy
 	@grep '^go ' go.mod
 
-.PHONY: build vet test run tidy
+.PHONY: build vet test run check tidy

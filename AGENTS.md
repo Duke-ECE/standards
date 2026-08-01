@@ -19,23 +19,38 @@ short `AGENTS.md` with repo-specific facts and a link to this file.
 
 ## 2. Go services — layout
 
-Use `templates/go-service/`. The layout, and what belongs in each file:
+**Vertical slices inside a hexagonal core.** Use `templates/go-service/`.
+The layout, and what belongs in each file:
 
 ```
-cmd/server/main.go        # env parsing, wiring, graceful shutdown ONLY — no logic
-internal/server/server.go # server construction: grpc.Server/http.Server, timeouts
-internal/server/routes.go # HTTP services: the endpoint table (RegisterRoutes)
-internal/<domain>/        # business logic + RPC handlers, one package per domain
-internal/store/           # persistence behind an interface (delete if stateless)
-supabase/migrations/      # schema, timestamped versions (see §4)
-k8s.yaml                  # Deployment + Service; env from Secrets via secretKeyRef
-Dockerfile                # golang:1.25-alpine → alpine:3.21, non-root uid 10001
-Makefile                  # build / vet / test / run — thin wrappers, no magic
+cmd/server/main.go            # the ONLY assembly point (composition root)
+internal/
+  transport/
+    grpc|http/                # server construction, thin handlers, single
+                              # error→status mapper (errors.go); HTTP: routes.go
+  <slice>/                    # one package per aggregate:
+    <name>.go                 #   types
+    service.go                #   business rules — imports nothing above itself
+    store.go                  #   the Store port, OWNED BY THE SLICE
+    errors.go                 #   domain errors
+  infrastructure/
+    postgrest/                # port implementations over Supabase PostgREST
+    memory/                   # in-memory implementations — REQUIRED
+  config/                     # env vars with defaults
 ```
 
 Rules:
 
-- `cmd/server`, not `cmd/api`. Handlers never live in `main`.
+- Dependencies point inward: transport → slices ← infrastructure.
+  Ports are declared in the slice that consumes them, never next to
+  their implementation.
+- `cmd/server`, not `cmd/api`. Handlers do zero business logic; domain
+  errors map to statuses in exactly one file per transport.
+- **Zero-dep local runs**: every port has a memory implementation; it is
+  the reference for behavior parity (same IDs, ordering, errors).
+- **No orphans**: every package is wired into the running binary.
+- Slices sit flat under `internal/` until there are more than five; then
+  group them under `internal/domain/` in one move.
 - Construction is explicit (`NewServer()`), not bare `http.ListenAndServe`.
 - **Timeouts are SSE-aware**: set `ReadHeaderTimeout`; never set a blanket
   `WriteTimeout` on servers that stream (it kills long-lived SSE/gRPC streams).

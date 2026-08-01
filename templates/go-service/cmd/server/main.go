@@ -1,5 +1,7 @@
-// Command server boots the service: env parsing, wiring, and graceful
-// shutdown only — no business logic belongs here.
+// Command server is the ONLY assembly point of the app:
+// config → infrastructure → domain services → transports → serve.
+// Everything below main is injectable and testable; nothing below main
+// knows how the pieces are wired.
 package main
 
 import (
@@ -10,7 +12,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/Duke-ECE/go-service-template/internal/server"
+	transportgrpc "github.com/Duke-ECE/go-service-template/internal/transport/grpc"
 )
 
 func main() {
@@ -19,12 +21,13 @@ func main() {
 		port = "50051"
 	}
 
-	lis, err := net.Listen("tcp", ":"+port)
-	if err != nil {
-		log.Fatalf("listen :%s: %v", port, err)
-	}
-
-	grpcServer := server.New()
+	// --- infrastructure → slices → transports ---
+	// Memory backends are the default so the binary runs with zero
+	// external services; swap in postgrest.NewClient(...) implementations
+	// when SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY are set.
+	//   store := memory.NewExampleStore()
+	//   exampleSvc := example.NewService(store)
+	grpcServer := transportgrpc.New()
 
 	// GracefulStop on SIGINT/SIGTERM: in-flight RPCs finish, then we exit.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -35,6 +38,10 @@ func main() {
 		grpcServer.GracefulStop()
 	}()
 
+	lis, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		log.Fatalf("listen :%s: %v", port, err)
+	}
 	log.Printf("listening on :%s", port)
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("serve: %v", err)

@@ -34,6 +34,9 @@ internal/
     postgrest/                  # port impl over Supabase PostgREST (+ httptest tests)
     memory/                     # port impl in memory — REQUIRED (zero-dep runs,
                                 #   slice tests, reference behavior for parity)
+test/                           # whole-service integration tests: assemble like
+                                # main, drive the public API over real TCP, fake
+                                # only true external boundaries
 ```
 
 - Dependencies point inward: transport → slices ← infrastructure.

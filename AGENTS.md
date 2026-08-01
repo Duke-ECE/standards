@@ -68,6 +68,11 @@ Rules:
 - **stdlib `testing` only.** No testify, no gomock. Seams are small
   interfaces (e.g. `Store`, `Fetcher`) faked in tests; gRPC is tested over
   `bufconn`; HTTP backends of external APIs are faked with `httptest`.
+- **Two test levels.** Unit tests live next to the code they cover.
+  A top-level `test/` holds **integration tests**: assemble the whole
+  service exactly like `cmd/server/main.go` does, drive its public API
+  over a real connection (TCP listener, not just in-package calls), and
+  fake only true external boundaries (Supabase HTTP, the k8s API).
 - Gates: `gofmt -l .` clean, `go vet ./...`, `go test ./...` — all must pass
   before every push. Tests live next to the code they cover.
 - `./scripts/check.sh` (also `make check`, wired into CI) mechanically

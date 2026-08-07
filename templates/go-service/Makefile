@@ -1,26 +1,39 @@
-# Thin convenience wrappers only — the same commands CI runs.
-# GOTOOLCHAIN=local guards against dev machines with newer Go toolchains
-# silently bumping go.mod past what the golang:1.25 Docker image accepts.
-
+# Standard Makefile (go-repo-rules): binary name = repo dir name,
+# `make gates` before every push. GOTOOLCHAIN=local guards against dev
+# machines silently pulling a newer toolchain than the golang:1.25
+# Docker image accepts.
 export GOTOOLCHAIN=local
 
+BINARY := $(notdir $(CURDIR))
+
 build:
-	go build ./...
-
-vet:
-	go vet ./...
-
-test:
-	go test ./...
+	go build -o $(BINARY) ./cmd/server
 
 run:
 	go run ./cmd/server
 
+test:
+	go test ./...
+
+vet:
+	go vet ./...
+
+fmt:
+	@gofmt -l .
+
+fmt-fix:
+	gofmt -w .
+
 check:
 	./scripts/check.sh
+
+gates: fmt vet test check
+
+clean:
+	rm -f $(BINARY)
 
 tidy:
 	go mod tidy
 	@grep '^go ' go.mod
 
-.PHONY: build vet test run check tidy
+.PHONY: build run test vet fmt fmt-fix check gates clean tidy

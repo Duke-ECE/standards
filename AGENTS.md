@@ -17,6 +17,27 @@ short `AGENTS.md` with repo-specific facts and a link to this file.
 - New services get a repo under `Duke-ECE/`, public, with the standard CI
   workflow, and the `KUBE_CONFIG` repo secret for auto-deploy.
 
+## 1a. Cross-repository technical documentation
+
+- [Duke-ECE/managed-agents-design](https://github.com/Duke-ECE/managed-agents-design)
+  stores requirement designs, decisions, and delivery records. It is a Markdown-only
+  repository with no build or deployment, separate from deployable service repos.
+- Use one directory per requirement under `requirements/NNNN-descriptive-slug/`,
+  even when implementation spans several repositories. Copy the root-level
+  `template/` directory to get `README.md`, `design.md`, `decisions.md`, and
+  `delivery.md`. Read that repository's `AGENTS.md` for its maintenance rules.
+- Before cross-repository implementation, find or create the requirement and
+  record its scope, interfaces, and open decisions. Link implementation PRs to it;
+  keep `delivery.md` current with PRs, pinned versions, validation, and rollout/rollback.
+- Append decisions within the requirement. Superseding an accepted decision creates
+  a new entry with links; do not silently replace its historical rationale.
+- These standards remain the authority for engineering conventions. Product/user
+  documentation belongs in `managed-agents-docs`; service setup stays in service
+  READMEs. Code, generated contracts, and migrations stay in their owning repos.
+- Keep documents and code comments in English. Distinguish proposals from implemented
+  behavior; only verified current architecture belongs in the design repo's
+  `architecture/` directory. Link shared designs instead of copying their text.
+
 ## 2. Go services — layout
 
 **Vertical slices inside a hexagonal core.** Use `templates/go-service/`.
